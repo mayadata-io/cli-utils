@@ -2,10 +2,11 @@ package chaos
 
 import (
 	"fmt"
+
 	util "github.com/mayadata-io/cli-utils/pkg/common"
 	"github.com/mayadata-io/cli-utils/pkg/common/k8s"
 
-	"github.com/go-resty/resty"
+	resty "github.com/go-resty/resty/v2"
 	"github.com/mayadata-io/cli-utils/pkg/constants"
 )
 

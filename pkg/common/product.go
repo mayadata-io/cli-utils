@@ -3,7 +3,7 @@ package common
 import (
 	"fmt"
 
-	"github.com/go-resty/resty/v2"
+	resty "github.com/go-resty/resty/v2"
 )
 
 type LaunchProductResponse struct {
