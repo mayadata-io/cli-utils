@@ -44,7 +44,7 @@ func Register(t common.Token, c common.Credentials) {
 		os.Exit(1)
 	}
 	// Apply agent registration yaml
-	yamlOutput, yerror := k8s.ApplyYaml(agent.Data.UserAgentReg.Token, c, constants.ChaosYamlPath)
+	yamlOutput, yerror := common.ApplyYaml(agent.Data.UserAgentReg.Token, c, constants.ChaosYamlPath)
 	if yerror != nil {
 		fmt.Printf("\n❌ Failed in applying registration yaml: [%s]\n", yerror.Error())
 		os.Exit(1)

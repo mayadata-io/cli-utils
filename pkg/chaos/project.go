@@ -2,9 +2,10 @@ package chaos
 
 import (
 	"fmt"
+
 	util "github.com/mayadata-io/cli-utils/pkg/common"
 
-	"github.com/go-resty/resty"
+	resty "github.com/go-resty/resty/v2"
 )
 
 type ProjectDetails struct {
