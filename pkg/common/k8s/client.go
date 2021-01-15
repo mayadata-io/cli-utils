@@ -1,7 +1,8 @@
 package k8s
 
 import (
-	"flag"
+	"fmt"
+	"os"
 	"path/filepath"
 
 	"k8s.io/client-go/kubernetes"
@@ -14,22 +15,23 @@ import (
 func ClientSet() (*kubernetes.Clientset, error) {
 	var kubeconfig *string
 	if home := homedir.HomeDir(); home != "" {
-		kubeconfig = flag.String("kubeconfig", filepath.Join(home, ".kube", "config"), "(optional) absolute path to the kubeconfig file")
+		kcfg := filepath.Join(home, ".kube", "config")
+		kubeconfig = &kcfg
 	} else {
-		kubeconfig = flag.String("kubeconfig", "", "absolute path to the kubeconfig file")
+		fmt.Println("ERROR: Clientset generation failed!")
+		os.Exit(1)
 	}
-	flag.Parse()
-
-	// use the current context in kubeconfig
+	// create the config
 	config, err := clientcmd.BuildConfigFromFlags("", *kubeconfig)
 	if err != nil {
-		panic(err.Error())
+		fmt.Println("ERROR: ", err.Error())
+		os.Exit(1)
 	}
-
 	// create the clientset
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		panic(err.Error())
+		fmt.Println("ERROR: ", err.Error())
+		os.Exit(1)
 	}
 	return clientset, err
 }
