@@ -14,6 +14,9 @@ func DiscoverPlatform() string {
 	if ok, _ := IsAWSPlatform(); ok {
 		return "AWS"
 	}
+	if ok, _ := IsGKEPlatform(); ok {
+		return "GKE"
+	}
 	if ok, _ := IsOpenshiftPlatform(); ok {
 		return "Openshift"
 	}
@@ -46,6 +49,34 @@ func IsAWSPlatform() (bool, error) {
 		return false, err
 	}
 	if strings.HasPrefix(nodeList.Items[0].Spec.ProviderID, constants.AWSIdentifier) {
+		return true, nil
+	}
+	return false, nil
+}
+
+// IsGKEPlatform determines if the host platform is GKE
+// by checking the ProviderID inside node spec
+//
+// Sample node custom resource of an GKE node
+// {
+//     "apiVersion": "v1",
+//     "kind": "Node",
+//     ....
+//     "spec": {
+//         "providerID": "gce://mayadata-demo-247709/us-central1-c/gke-kuberactl-default-pool-6017d869-62q5"
+//     }
+//   }
+// }
+func IsGKEPlatform() (bool, error) {
+	clientset, err := k8s.ClientSet()
+	if err != nil {
+		return false, err
+	}
+	nodeList, err := clientset.CoreV1().Nodes().List(context.TODO(), v1.ListOptions{})
+	if err != nil {
+		return false, err
+	}
+	if strings.HasPrefix(nodeList.Items[0].Spec.ProviderID, constants.GKEIdentifier) {
 		return true, nil
 	}
 	return false, nil
