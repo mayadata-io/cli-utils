@@ -17,6 +17,9 @@ const (
 	// AWS identifier
 	AWSIdentifier = "aws://"
 
+	// GKE identifier
+	GKEIdentifier = "gce://"
+
 	// Openshift identifier
 	OpenshiftIdentifier = "node.openshift.io/os_id"
 
