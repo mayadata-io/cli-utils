@@ -5,6 +5,7 @@ import (
 	"github.com/go-resty/resty/v2"
 	ymlparser "gopkg.in/yaml.v2"
 	"log"
+	"net/url"
 )
 
 type WorkflowYAML struct {
@@ -66,6 +67,11 @@ type Parameter struct {
 	Value string `yaml:"value"`
 }
 
+type ListPkgData struct {
+	Data struct {
+		ListHubPkgData []PackageData `json:"ListHubPkgData"`
+	} `json:"data"`
+}
 type PackageData struct {
 	Experiments []string `json:"Experiments"`
 	ChartName   string   `json:"chartName"`
@@ -81,21 +87,21 @@ type GenerateWorkflowInputs struct {
 	HubName string
 	ProjectID string
 	ChartName string
-	ExperimentName string
+	ExperimentName *string
 	AccessToken string
 	FileType *string
-	URL string
+	URL *url.URL
 	WorkName string
 	WorkNamespace string
 	ClusterID string
-	packages []*PackageData
+	Packages []*PackageData
 }
 
 func GetYamlData(inputs GenerateWorkflowInputs) (YAMLData, error){
 	client := resty.New()
 
 	var yamlDataResponse YAMLData
-	gql_query := `{"query":"query {\n  getYAMLData(experimentInput: {\n    ProjectID: \"`+ inputs.ProjectID +`\"\n    HubName: \"` + inputs.HubName +`\"\n    ChartName: \"`+ inputs.ChartName +`\"\n    ExperimentName: \"`+ inputs.ExperimentName +`\"\n    FileType: \"`+ *inputs.FileType +`\"\n    \n  })\n}"}`
+	gql_query := `{"query":"query {\n  getYAMLData(experimentInput: {\n    ProjectID: \"`+ inputs.ProjectID +`\"\n    HubName: \"` + inputs.HubName +`\"\n    ChartName: \"`+ inputs.ChartName +`\"\n    ExperimentName: \"`+ *inputs.ExperimentName +`\"\n    FileType: \"`+ *inputs.FileType +`\"\n    \n  })\n}"}`
 	response, err := client.R().
 		SetHeader("Content-Type", "application/json").
 		SetHeader("Authorization", fmt.Sprintf("%s", inputs.AccessToken)).
@@ -157,14 +163,15 @@ func GenerateWorkflow(wf_inputs GenerateWorkflowInputs) ([]byte, error){
 	revert_chaos.Container.Command = []string{"sh", "-c"}
 	revert_chaos.Container.Args = []string {"kubectl delete chaosengine "}
 
-	for _, pkg := range wf_inputs.packages {
+	for _, pkg := range wf_inputs.Packages {
 
 		for _, experiment := range pkg.Experiments {
+
+			wf_inputs.ExperimentName = &experiment
 
 			custom_chaos.Steps = append(custom_chaos.Steps, []Step{{Name: experiment, Template: experiment}})
 			var file_type = "experiment"
 			wf_inputs.FileType = &file_type
-
 			yamlData, err := GetYamlData(wf_inputs)
 			if err != nil {
 				log.Print(err)
