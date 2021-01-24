@@ -12,19 +12,19 @@ type WorkflowYAML struct {
 	APIVersion string `yaml:"apiVersion"`
 	Kind       string `yaml:"kind"`
 	Metadata   struct {
-		Name      string `yaml:"name"`
-		Namespace string `yaml:"namespace"`
-		Labels 	  map[string]string `yaml:"labels"`
+		Name      string            `yaml:"name"`
+		Namespace string            `yaml:"namespace"`
+		Labels    map[string]string `yaml:"labels"`
 	} `yaml:"metadata"`
 	Spec struct {
-		Arguments Arguments `yaml:"arguments"`
-		Entrypoint      string `yaml:"entrypoint"`
+		Arguments       Arguments `yaml:"arguments"`
+		Entrypoint      string    `yaml:"entrypoint"`
 		SecurityContext struct {
 			RunAsNonRoot bool `yaml:"runAsNonRoot"`
 			RunAsUser    int  `yaml:"runAsUser"`
 		} `yaml:"securityContext"`
-		ServiceAccountName string `yaml:"serviceAccountName"`
-		Templates []Template `yaml:"templates"`
+		ServiceAccountName string     `yaml:"serviceAccountName"`
+		Templates          []Template `yaml:"templates"`
 	} `yaml:"spec"`
 }
 
@@ -35,22 +35,22 @@ type Input struct {
 type Artifact struct {
 	Name string `yaml:"name"`
 	Path string `yaml:"path"`
-	Raw Raw `yaml:"raw"`
+	Raw  Raw    `yaml:"raw"`
 }
 
-type Raw  struct {
+type Raw struct {
 	Data string `yaml:"data"`
 }
 
 type Template struct {
-	Name  string `yaml:"name"`
-	Steps [][]Step `yaml:"steps,omitempty"`
-	Input Input `yaml:"inputs,omitempty"`
+	Name      string   `yaml:"name"`
+	Steps     [][]Step `yaml:"steps,omitempty"`
+	Input     Input    `yaml:"inputs,omitempty"`
 	Container struct {
 		Args    []string `yaml:"args"`
 		Command []string `yaml:"command"`
 		Image   string   `yaml:"image"`
-	}	`yaml:"container,omitempty"`
+	} `yaml:"container,omitempty"`
 }
 
 type Step struct {
@@ -84,17 +84,17 @@ type YAMLData struct {
 }
 
 type GenerateWorkflowInputs struct {
-	HubName string
-	ProjectID string
-	ChartName string
+	HubName        string
+	ProjectID      string
+	ChartName      string
 	ExperimentName *string
-	AccessToken string
-	FileType *string
-	URL *url.URL
-	WorkName string
-	WorkNamespace string
-	ClusterID string
-	Packages []*PackageData
+	AccessToken    string
+	FileType       *string
+	URL            *url.URL
+	WorkName       string
+	WorkNamespace  string
+	ClusterID      string
+	Packages       []*PackageData
 }
 
 type GetClusters struct {
@@ -115,11 +115,11 @@ type GetHubStatus struct {
 	} `json:"data"`
 }
 
-func GetYamlData(inputs GenerateWorkflowInputs) (YAMLData, error){
+func GetYamlData(inputs GenerateWorkflowInputs) (YAMLData, error) {
 	client := resty.New()
 
 	var yamlDataResponse YAMLData
-	gql_query := `{"query":"query {\n  getYAMLData(experimentInput: {\n    ProjectID: \"`+ inputs.ProjectID +`\"\n    HubName: \"` + inputs.HubName +`\"\n    ChartName: \"`+ inputs.ChartName +`\"\n    ExperimentName: \"`+ *inputs.ExperimentName +`\"\n    FileType: \"`+ *inputs.FileType +`\"\n    \n  })\n}"}`
+	gql_query := `{"query":"query {\n  getYAMLData(experimentInput: {\n    ProjectID: \"` + inputs.ProjectID + `\"\n    HubName: \"` + inputs.HubName + `\"\n    ChartName: \"` + inputs.ChartName + `\"\n    ExperimentName: \"` + *inputs.ExperimentName + `\"\n    FileType: \"` + *inputs.FileType + `\"\n    \n  })\n}"}`
 	response, err := client.R().
 		SetHeader("Content-Type", "application/json").
 		SetHeader("Authorization", fmt.Sprintf("%s", inputs.AccessToken)).
@@ -141,7 +141,7 @@ func GetYamlData(inputs GenerateWorkflowInputs) (YAMLData, error){
 	return yamlDataResponse, nil
 }
 
-func GenerateWorkflow(wf_inputs GenerateWorkflowInputs) ([]byte, error){
+func GenerateWorkflow(wf_inputs GenerateWorkflowInputs) ([]byte, error) {
 
 	var yaml WorkflowYAML
 
@@ -162,10 +162,10 @@ func GenerateWorkflow(wf_inputs GenerateWorkflowInputs) ([]byte, error){
 	yaml.Spec.SecurityContext.RunAsUser = 1000
 
 	var (
-		custom_chaos Template
+		custom_chaos        Template
 		install_experiments Template
-		engines []Template
-		revert_chaos Template
+		engines             []Template
+		revert_chaos        Template
 	)
 
 	custom_chaos.Name = "custom-chaos"
@@ -179,7 +179,7 @@ func GenerateWorkflow(wf_inputs GenerateWorkflowInputs) ([]byte, error){
 	revert_chaos.Name = "revert-chaos"
 	revert_chaos.Container.Image = "lachlanevenson/k8s-kubectl"
 	revert_chaos.Container.Command = []string{"sh", "-c"}
-	revert_chaos.Container.Args = []string {"kubectl delete chaosengine "}
+	revert_chaos.Container.Args = []string{"kubectl delete chaosengine "}
 
 	for _, pkg := range wf_inputs.Packages {
 
@@ -198,7 +198,7 @@ func GenerateWorkflow(wf_inputs GenerateWorkflowInputs) ([]byte, error){
 			install_experiments.Input.Artifacts = append(install_experiments.Input.Artifacts,
 				Artifact{
 					Name: experiment,
-					Path: "/tmp/"+ experiment + ".yaml",
+					Path: "/tmp/" + experiment + ".yaml",
 
 					Raw: Raw{
 						Data: fmt.Sprint(yamlData.Data.GetYAMLData),
@@ -219,13 +219,13 @@ func GenerateWorkflow(wf_inputs GenerateWorkflowInputs) ([]byte, error){
 
 			var engine Template
 			engine.Name = experiment
-			engine.Container.Args = append(engine.Container.Args, "-file=/tmp/chaosengine-" + experiment + ".yaml")
+			engine.Container.Args = append(engine.Container.Args, "-file=/tmp/chaosengine-"+experiment+".yaml")
 			engine.Container.Args = append(engine.Container.Args, "-saveName=/tmp/engine-name")
 			engine.Container.Image = "litmuschaos/litmus-checker:latest"
 			engine.Input.Artifacts = append(engine.Input.Artifacts, Artifact{
 				Name: experiment,
 				Path: "/tmp/chaosengine-" + experiment + ".yaml",
-				Raw: Raw{ Data: fmt.Sprintln(yamlData.Data.GetYAMLData) },
+				Raw:  Raw{Data: fmt.Sprintln(yamlData.Data.GetYAMLData)},
 			})
 
 			engines = append(engines, engine)
@@ -259,7 +259,7 @@ func GetClustersQuery(project_id string, access_token string, url *url.URL) (Get
 	client := resty.New()
 
 	var getClusters GetClusters
-	gql_query := `{"query":"query {\n  getCluster(project_id: \"`+ project_id +`\"){\n    cluster_id\n cluster_name\n  }\n}"}`
+	gql_query := `{"query":"query {\n  getCluster(project_id: \"` + project_id + `\"){\n    cluster_id\n cluster_name\n  }\n}"}`
 	resp, err := client.R().
 		SetHeader("Content-Type", "application/json").
 		SetHeader("Authorization", fmt.Sprintf("%s", access_token)).
@@ -282,11 +282,11 @@ func GetClustersQuery(project_id string, access_token string, url *url.URL) (Get
 	return getClusters, nil
 }
 
-func GetHubStatusQuery(project_id string, access_token string, url *url.URL) (GetHubStatus, error){
+func GetHubStatusQuery(project_id string, access_token string, url *url.URL) (GetHubStatus, error) {
 	client := resty.New()
 
 	var getHubStatus GetHubStatus
-	gql_query := `{"query":"query {\n  getHubStatus(projectID: \"`+ project_id +`\"){\n    id\n HubName \n  }\n}"}`
+	gql_query := `{"query":"query {\n  getHubStatus(projectID: \"` + project_id + `\"){\n    id\n HubName \n  }\n}"}`
 	response, err := client.R().
 		SetHeader("Content-Type", "application/json").
 		SetHeader("Authorization", fmt.Sprintf("%s", access_token)).
@@ -309,12 +309,12 @@ func GetHubStatusQuery(project_id string, access_token string, url *url.URL) (Ge
 	return getHubStatus, nil
 }
 
-func ListPkgDataQuery(project_id string, hub_id string, access_token string, url *url.URL) (ListPkgData, error){
+func ListPkgDataQuery(project_id string, hub_id string, access_token string, url *url.URL) (ListPkgData, error) {
 	var pkgdata ListPkgData
 
 	client := resty.New()
 
-	gql_query := `{"query":"query {\n  ListHubPkgData(projectID: \"`+ project_id +`\", hubID: \"`+ hub_id +`\"){\n    Experiments\n    chartName\n  }\n}"}`
+	gql_query := `{"query":"query {\n  ListHubPkgData(projectID: \"` + project_id + `\", hubID: \"` + hub_id + `\"){\n    Experiments\n    chartName\n  }\n}"}`
 	response, err := client.R().
 		SetHeader("Content-Type", "application/json").
 		SetHeader("Authorization", fmt.Sprintf("%s", access_token)).
