@@ -97,6 +97,24 @@ type GenerateWorkflowInputs struct {
 	Packages []*PackageData
 }
 
+type GetClusters struct {
+	Data struct {
+		GetCluster []struct {
+			ClusterID   string `json:"cluster_id"`
+			ClusterName string `json:"cluster_name"`
+		} `json:"getCluster"`
+	} `json:"data"`
+}
+
+type GetHubStatus struct {
+	Data struct {
+		GetHubStatus []struct {
+			ID      string `json:"id"`
+			HubName string `json:"HubName"`
+		} `json:"getHubStatus"`
+	} `json:"data"`
+}
+
 func GetYamlData(inputs GenerateWorkflowInputs) (YAMLData, error){
 	client := resty.New()
 
@@ -229,28 +247,92 @@ func GenerateWorkflow(wf_inputs GenerateWorkflowInputs) ([]byte, error){
 	revert_chaos.Container.Args[0] += "-n {{workflow.parameters.adminModeNamespace}}"
 	yaml.Spec.Templates = append(yaml.Spec.Templates, revert_chaos)
 
-	d1, _ := ymlparser.Marshal(yaml)
-	log.Print(string(d1))
+	yamlByte, err := ymlparser.Marshal(yaml)
+	if err != nil {
+		return nil, err
+	}
 
-	return d1, nil
-	//f, err := os.Create("/home/raj/tmp/myfile.yaml")
-	//if err != nil {
-	//	fmt.Println(err)
-	//	return nil, err
-	//}
-	//
-	//n2, err := f.Write(d1)
-	//if err != nil {
-	//	fmt.Println(err)
-	//	f.Close()
-	//	return nil, err
-	//}
-	//
-	//fmt.Println(n2, "bytes written successfully")
-	//err = f.Close()
-	//if err != nil {
-	//	fmt.Println(err)
-	//	return nil, err
-	//}
-	//
+	return yamlByte, nil
+}
+
+func GetClustersQuery(project_id string, access_token string, url *url.URL) (GetClusters, error) {
+	client := resty.New()
+
+	var getClusters GetClusters
+	gql_query := `{"query":"query {\n  getCluster(project_id: \"`+ project_id +`\"){\n    cluster_id\n cluster_name\n  }\n}"}`
+	resp, err := client.R().
+		SetHeader("Content-Type", "application/json").
+		SetHeader("Authorization", fmt.Sprintf("%s", access_token)).
+		SetHeader("Accept-Encoding", "gzip, deflate, br").
+		SetBody(gql_query).
+		// SetResult automatic unmarshalling for the request,
+		// if response status code is between 200 and 299
+		SetResult(&getClusters).
+		Post(
+			fmt.Sprintf(
+				"%s/%s/api/graphql/query",
+				url,
+				"chaos",
+			),
+		)
+	if err != nil || !resp.IsSuccess() {
+		return GetClusters{}, err
+	}
+
+	return getClusters, nil
+}
+
+func GetHubStatusQuery(project_id string, access_token string, url *url.URL) (GetHubStatus, error){
+	client := resty.New()
+
+	var getHubStatus GetHubStatus
+	gql_query := `{"query":"query {\n  getHubStatus(projectID: \"`+ project_id +`\"){\n    id\n HubName \n  }\n}"}`
+	response, err := client.R().
+		SetHeader("Content-Type", "application/json").
+		SetHeader("Authorization", fmt.Sprintf("%s", access_token)).
+		SetHeader("Accept-Encoding", "gzip, deflate, br").
+		SetBody(gql_query).
+		// SetResult automatic unmarshalling for the request,
+		// if response status code is between 200 and 299
+		SetResult(&getHubStatus).
+		Post(
+			fmt.Sprintf(
+				"%s/%s/api/graphql/query",
+				url,
+				"chaos",
+			),
+		)
+	if err != nil || !response.IsSuccess() {
+		return GetHubStatus{}, nil
+	}
+
+	return getHubStatus, nil
+}
+
+func ListPkgDataQuery(project_id string, hub_id string, access_token string, url *url.URL) (ListPkgData, error){
+	var pkgdata ListPkgData
+
+	client := resty.New()
+
+	gql_query := `{"query":"query {\n  ListHubPkgData(projectID: \"`+ project_id +`\", hubID: \"`+ hub_id +`\"){\n    Experiments\n    chartName\n  }\n}"}`
+	response, err := client.R().
+		SetHeader("Content-Type", "application/json").
+		SetHeader("Authorization", fmt.Sprintf("%s", access_token)).
+		SetHeader("Accept-Encoding", "gzip, deflate, br").
+		SetBody(gql_query).
+		// SetResult automatic unmarshalling for the request,
+		// if response status code is between 200 and 299
+		SetResult(&pkgdata).
+		Post(
+			fmt.Sprintf(
+				"%s/%s/api/graphql/query",
+				url,
+				"chaos",
+			),
+		)
+	if err != nil || !response.IsSuccess() {
+		log.Print(err)
+	}
+
+	return pkgdata, nil
 }
