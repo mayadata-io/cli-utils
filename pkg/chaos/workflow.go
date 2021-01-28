@@ -2,75 +2,14 @@ package chaos
 
 import (
 	"fmt"
+	v1alpha1 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
 	"github.com/go-resty/resty/v2"
 	ymlparser "gopkg.in/yaml.v2"
 	"log"
 	"net/url"
-	v1alpha1 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
 	//metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
+	v1 "k8s.io/api/core/v1"
 )
-
-//type WorkflowYAML struct {
-//	metav1.TypeMeta   `json:",inline"`
-//
-//	APIVersion string `yaml:"apiVersion"`
-//	Kind       string `yaml:"kind"`
-//	Metadata   struct {
-//		Name      string            `yaml:"name"`
-//		Namespace string            `yaml:"namespace"`
-//		Labels    map[string]string `yaml:"labels"`
-//	} `yaml:"metadata"`
-//	Spec struct {
-//		Arguments       Arguments `yaml:"arguments"`
-//		Entrypoint      string    `yaml:"entrypoint"`
-//		SecurityContext struct {
-//			RunAsNonRoot bool `yaml:"runAsNonRoot"`
-//			RunAsUser    int  `yaml:"runAsUser"`
-//		} `yaml:"securityContext"`
-//		ServiceAccountName string     `yaml:"serviceAccountName"`
-//		Templates          []Template `yaml:"templates"`
-//	} `yaml:"spec"`
-//}
-//
-//type Input struct {
-//	Artifacts []Artifact `yaml:"artifacts"`
-//}
-//
-//type Artifact struct {
-//	Name string `yaml:"name"`
-//	Path string `yaml:"path"`
-//	Raw  Raw    `yaml:"raw"`
-//}
-//
-//type Raw struct {
-//	Data string `yaml:"data"`
-//}
-//
-//type Template struct {
-//	Name      string   `yaml:"name"`
-//	Steps     [][]Step `yaml:"steps,omitempty"`
-//	Input     Input    `yaml:"inputs,omitempty"`
-//	Container struct {
-//		Args    []string `yaml:"args"`
-//		Command []string `yaml:"command"`
-//		Image   string   `yaml:"image"`
-//	} `yaml:"container,omitempty"`
-//}
-//
-//type Step struct {
-//	Name     string `yaml:"name"`
-//	Template string `yaml:"template"`
-//}
-//
-//type Arguments struct {
-//	Parameters []Parameter `yaml:"parameters"`
-//}
-//
-//type Parameter struct {
-//	Name  string `yaml:"name"`
-//	Value string `yaml:"value"`
-//}
 
 type ListPkgData struct {
 	Data struct {
@@ -162,10 +101,14 @@ func GenerateWorkflow(wf_inputs GenerateWorkflowInputs) ([]byte, error) {
 	pram.Name = "adminModeNamespace"
 	pram.Value = &wf_inputs.WorkNamespace
 	yaml.Spec.Arguments.Parameters = append(yaml.Spec.Arguments.Parameters, pram)
-
+	//
 	yaml.Spec.Entrypoint = "custom-chaos"
-	*yaml.Spec.SecurityContext.RunAsNonRoot = true
-	*yaml.Spec.SecurityContext.RunAsUser = 1000
+	var b = true
+	var i int64 = 1000
+	yaml.Spec.SecurityContext = &v1.PodSecurityContext{
+		RunAsNonRoot: &b,
+		RunAsUser:    &i,
+	}
 
 	var (
 		custom_chaos        v1alpha1.Template
@@ -177,20 +120,24 @@ func GenerateWorkflow(wf_inputs GenerateWorkflowInputs) ([]byte, error) {
 	custom_chaos.Name = "custom-chaos"
 	custom_chaos.Steps = append(custom_chaos.Steps, v1alpha1.ParallelSteps{Steps: []v1alpha1.WorkflowStep{
 		{
-			Name: "install-chaos-experiments",
+			Name:     "install-chaos-experiments",
 			Template: "install-chaos-experiments",
 		},
 	}})
 
 	install_experiments.Name = "install-chaos-experiments"
-	install_experiments.Container.Image = "lachlanevenson/k8s-kubectl"
-	install_experiments.Container.Command = []string{"sh", "-c"}
-	install_experiments.Container.Args = []string{""}
+	install_experiments.Container = &v1.Container{
+		Image:   "lachlanevenson/k8s-kubectl",
+		Command: []string{"sh", "-c"},
+		Args:    []string{""},
+	}
 
 	revert_chaos.Name = "revert-chaos"
-	revert_chaos.Container.Image = "lachlanevenson/k8s-kubectl"
-	revert_chaos.Container.Command = []string{"sh", "-c"}
-	revert_chaos.Container.Args = []string{"kubectl delete chaosengine "}
+	revert_chaos.Container = &v1.Container{
+		Image:   "lachlanevenson/k8s-kubectl",
+		Command: []string{"sh", "-c"},
+		Args:    []string{"kubectl delete chaosengine "},
+	}
 
 	for _, pkg := range wf_inputs.Packages {
 
@@ -200,11 +147,11 @@ func GenerateWorkflow(wf_inputs GenerateWorkflowInputs) ([]byte, error) {
 
 			custom_chaos.Steps = append(custom_chaos.Steps, v1alpha1.ParallelSteps{Steps: []v1alpha1.WorkflowStep{
 				{
-					Name: experiment,
+					Name:     experiment,
 					Template: experiment,
 				},
 			}})
-
+			//
 			var file_type = "experiment"
 			wf_inputs.FileType = &file_type
 			yamlData, err := GetYamlData(wf_inputs)
@@ -237,9 +184,14 @@ func GenerateWorkflow(wf_inputs GenerateWorkflowInputs) ([]byte, error) {
 
 			var engine v1alpha1.Template
 			engine.Name = experiment
-			engine.Container.Args = append(engine.Container.Args, "-file=/tmp/chaosengine-"+experiment+".yaml")
-			engine.Container.Args = append(engine.Container.Args, "-saveName=/tmp/engine-name")
-			engine.Container.Image = "litmuschaos/litmus-checker:latest"
+			engine.Container = &v1.Container{
+				Args: []string{
+					`-file=/tmp/chaosengine-` + experiment + `.yaml`,
+					"-saveName=/tmp/engine-name",
+				},
+				Image: "litmuschaos/litmus-checker:latest",
+			}
+
 			engine.Inputs.Artifacts = append(engine.Inputs.Artifacts, v1alpha1.Artifact{
 				Name: experiment,
 				Path: "/tmp/chaosengine-" + experiment + ".yaml",
@@ -248,7 +200,6 @@ func GenerateWorkflow(wf_inputs GenerateWorkflowInputs) ([]byte, error) {
 						Data: fmt.Sprint(yamlData.Data.GetYAMLData),
 					},
 				},
-
 			})
 
 			engines = append(engines, engine)
@@ -258,7 +209,7 @@ func GenerateWorkflow(wf_inputs GenerateWorkflowInputs) ([]byte, error) {
 	// Custom chaos
 	custom_chaos.Steps = append(custom_chaos.Steps, v1alpha1.ParallelSteps{Steps: []v1alpha1.WorkflowStep{
 		{
-			Name: "revert-chaos",
+			Name:     "revert-chaos",
 			Template: "revert-chaos",
 		},
 	}})
@@ -268,10 +219,10 @@ func GenerateWorkflow(wf_inputs GenerateWorkflowInputs) ([]byte, error) {
 	// Install experiments
 	install_experiments.Container.Args[0] += "sleep 30"
 	yaml.Spec.Templates = append(yaml.Spec.Templates, install_experiments)
-
+	//
 	// Install engines
 	yaml.Spec.Templates = append(yaml.Spec.Templates, engines...)
-
+	//
 	// Revert Chaos
 	revert_chaos.Container.Args[0] += "-n {{workflow.parameters.adminModeNamespace}}"
 	yaml.Spec.Templates = append(yaml.Spec.Templates, revert_chaos)
