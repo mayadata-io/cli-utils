@@ -62,8 +62,8 @@ func getToken(c Credentials, path string) (Token, AuthError) {
 	return token, AuthError{}
 }
 
-func Login(c Credentials) Token {
-	t, err := getToken(c)
+func Login(c Credentials, path string) Token {
+	t, err := getToken(c, path)
 	if err.Error != "" || t.AccessToken == "" {
 		fmt.Println("\nError: ", err.ErrorDescription, ":", err.Error)
 		fmt.Println("❌ Login Failed!!")
