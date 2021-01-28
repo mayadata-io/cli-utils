@@ -31,7 +31,7 @@ type AuthError struct {
 }
 
 // getToken fetches JWT token for the entered user credentials
-func getToken(c Credentials) (Token, AuthError) {
+func getToken(c Credentials, path string) (Token, AuthError) {
 
 	var authErr AuthError
 	client := resty.New()
@@ -49,8 +49,9 @@ func getToken(c Credentials) (Token, AuthError) {
 		SetError(&authErr).
 		Post(
 			fmt.Sprintf(
-				"%s/api/auth/v1/token",
+				"%s/%s",
 				c.Host,
+				path,
 			),
 		)
 
