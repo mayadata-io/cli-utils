@@ -2,13 +2,12 @@ package chaos
 
 import (
 	"fmt"
-	v1alpha1 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
+	"github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
 	"github.com/go-resty/resty/v2"
 	ymlparser "gopkg.in/yaml.v2"
+	v1 "k8s.io/api/core/v1"
 	"log"
 	"net/url"
-	//metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v1 "k8s.io/api/core/v1"
 )
 
 type ListPkgData struct {
